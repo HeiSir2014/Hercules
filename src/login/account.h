@@ -2,7 +2,7 @@
  * This file is part of Hercules.
  * http://herc.ws - http://github.com/HerculesWS/Hercules
  *
- * Copyright (C) 2012-2015  Hercules Dev Team
+ * Copyright (C) 2012-2016  Hercules Dev Team
  * Copyright (C)  Athena Dev Teams
  *
  * Hercules is free software: you can redistribute it and/or modify
@@ -24,6 +24,9 @@
 #include "common/cbasetypes.h"
 #include "common/mmo.h" // ACCOUNT_REG2_NUM
 #include "common/sql.h" // Sql
+
+/* Forward Declarations */
+struct config_t; // common/conf.h
 
 typedef struct AccountDB AccountDB;
 typedef struct AccountDBIterator AccountDBIterator;
@@ -105,10 +108,9 @@ struct AccountDB
 	/// Sets a property in this database.
 	///
 	/// @param self Database
-	/// @param key Property name
-	/// @param value Property value
+	/// @param config Configuration node
 	/// @return true if successful
-	bool (*set_property)(AccountDB* self, const char* key, const char* value);
+	bool (*set_property)(AccountDB* self, struct config_t *config, bool imported);
 
 	/// Creates a new account in this database.
 	/// If acc->account_id is not -1, the provided value will be used.
