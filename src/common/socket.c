@@ -2,7 +2,7 @@
  * This file is part of Hercules.
  * http://herc.ws - http://github.com/HerculesWS/Hercules
  *
- * Copyright (C) 2012-2015  Hercules Dev Team
+ * Copyright (C) 2012-2016  Hercules Dev Team
  * Copyright (C)  Athena Dev Teams
  *
  * Hercules is free software: you can redistribute it and/or modify
@@ -75,6 +75,8 @@ struct socket_interface sockt_s;
 struct socket_interface *sockt;
 
 struct socket_data **session;
+
+const char *SOCKET_CONF_FILENAME = "conf/common/socket.conf";
 
 #ifdef SEND_SHORTLIST
 // Add a fd to the shortlist so that it'll be recognized as a fd that needs
@@ -960,14 +962,16 @@ struct access_control {
 	uint32 mask;
 };
 
+VECTOR_STRUCT_DECL(access_control_list, struct access_control);
+
 enum aco {
 	ACO_DENY_ALLOW,
 	ACO_ALLOW_DENY,
 	ACO_MUTUAL_FAILURE
 };
 
-static VECTOR_DECL(struct access_control) access_allow;
-static VECTOR_DECL(struct access_control) access_deny;
+static struct access_control_list access_allow;
+static struct access_control_list access_deny;
 static int access_order    = ACO_DENY_ALLOW;
 static int access_debug    = 0;
 static int ddos_count      = 10;
@@ -1159,76 +1163,202 @@ int access_ipmask(const char *str, struct access_control *acc)
 	acc->mask = mask;
 	return 1;
 }
-//////////////////////////////
-#endif
-//////////////////////////////
 
-int socket_config_read(const char* cfgName)
+/**
+ * Adds an entry to the access list.
+ *
+ * @param setting     The setting to read from.
+ * @param list_name   The list name (used in error messages).
+ * @param access_list The access list to edit.
+ *
+ * @retval false in case of failure
+ */
+bool access_list_add(struct config_setting_t *setting, const char *list_name, struct access_control_list *access_list)
 {
-	char line[1024],w1[1024],w2[1024];
-	FILE *fp;
+	const char *temp = NULL;
+	int i, setting_length;
 
-	fp = fopen(cfgName, "r");
-	if(fp == NULL) {
-		ShowError("File not found: %s\n", cfgName);
-		return 1;
+	nullpo_retr(false, setting);
+	nullpo_retr(false, list_name);
+	nullpo_retr(false, access_list);
+
+	if ((setting_length = libconfig->setting_length(setting)) <= 0)
+		return false;
+
+	VECTOR_ENSURE(*access_list, setting_length, 1);
+	for (i = 0; i < setting_length; i++) {
+		struct access_control acc;
+		if ((temp = libconfig->setting_get_string_elem(setting, i)) == NULL) {
+			continue;
+		}
+
+		if (!access_ipmask(temp, &acc)) {
+			ShowError("access_list_add: Invalid ip or ip range %s '%d'!\n", list_name, i);
+			continue;
+		}
+		VECTOR_PUSH(*access_list, acc);
 	}
 
-	while (fgets(line, sizeof(line), fp)) {
-		if(line[0] == '/' && line[1] == '/')
-			continue;
-		if (sscanf(line, "%1023[^:]: %1023[^\r\n]", w1, w2) != 2)
-			continue;
+	return true;
+}
 
-		if (!strcmpi(w1, "stall_time")) {
-			sockt->stall_time = atoi(w2);
-			if( sockt->stall_time < 3 )
-				sockt->stall_time = 3;/* a minimum is required to refrain it from killing itself */
-		}
-#ifndef MINICORE
-		else if (!strcmpi(w1, "enable_ip_rules")) {
-			ip_rules = config_switch(w2);
-		} else if (!strcmpi(w1, "order")) {
-			if (!strcmpi(w2, "deny,allow"))
-				access_order = ACO_DENY_ALLOW;
-			else if (!strcmpi(w2, "allow,deny"))
-				access_order = ACO_ALLOW_DENY;
-			else if (!strcmpi(w2, "mutual-failure"))
-				access_order = ACO_MUTUAL_FAILURE;
-		} else if (!strcmpi(w1, "allow")) {
-			struct access_control acc;
-			VECTOR_ENSURE(access_allow, 1, 1);
-			if (access_ipmask(w2, &acc))
-				VECTOR_PUSH(access_allow, acc);
-			else
-				ShowError("socket_config_read: Invalid ip or ip range '%s'!\n", line);
-		} else if (!strcmpi(w1, "deny")) {
-			struct access_control acc;
-			VECTOR_ENSURE(access_deny, 1, 1);
-			if (access_ipmask(w2, &acc))
-				VECTOR_PUSH(access_deny, acc);
-			else
-				ShowError("socket_config_read: Invalid ip or ip range '%s'!\n", line);
-		}
-		else if (!strcmpi(w1,"ddos_interval"))
-			ddos_interval = atoi(w2);
-		else if (!strcmpi(w1,"ddos_count"))
-			ddos_count = atoi(w2);
-		else if (!strcmpi(w1,"ddos_autoreset"))
-			ddos_autoreset = atoi(w2);
-		else if (!strcmpi(w1,"debug"))
-			access_debug = config_switch(w2);
-		else if (!strcmpi(w1,"socket_max_client_packet"))
-			socket_max_client_packet = strtoul(w2, NULL, 0);
+//////////////////////////////
 #endif
-		else if (!strcmpi(w1, "import"))
-			socket_config_read(w2);
-		else
-			ShowWarning("Unknown setting '%s' in file %s\n", w1, cfgName);
+//////////////////////////////
+
+/**
+ * Reads 'socket_configuration/ip_rules' and initializes required variables.
+ *
+ * @param filename Path to configuration file (used in error and warning messages).
+ * @param config   The current config being parsed.
+ * @param imported Whether the current config is imported from another file.
+ *
+ * @retval false in case of error.
+ */
+bool socket_config_read_iprules(const char *filename, struct config_t *config, bool imported)
+{
+#ifndef MINICORE
+	struct config_setting_t *setting = NULL;
+	const char *temp = NULL;
+
+	nullpo_retr(false, filename);
+	nullpo_retr(false, config);
+
+	if ((setting = libconfig->lookup(config, "socket_configuration/ip_rules")) == NULL) {
+		if (imported)
+			return true;
+		ShowError("socket_config_read: socket_configuration/ip_rules was not found in %s!\n", filename);
+		return false;
+	}
+	libconfig->setting_lookup_bool(setting, "enable", &ip_rules);
+
+	if (!ip_rules)
+		return true;
+
+	if (libconfig->setting_lookup_string(setting, "order", &temp) == CONFIG_TRUE) {
+		if (strcmpi(temp, "deny,allow" ) == 0) {
+			access_order = ACO_DENY_ALLOW;
+		} else if (strcmpi(temp, "allow, deny") == 0) {
+			access_order = ACO_ALLOW_DENY;
+		} else if (strcmpi(temp, "mutual-failure") == 0) {
+			access_order = ACO_MUTUAL_FAILURE;
+		} else {
+			ShowWarning("socket_config_read: invalid value '%s' for socket_configuration/ip_rules/order.\n", temp);
+		}
 	}
 
-	fclose(fp);
-	return 0;
+	if ((setting = libconfig->lookup(config, "socket_configuration/ip_rules/allow_list")) == NULL) {
+		if (!imported)
+			ShowError("socket_config_read: socket_configuration/ip_rules/allow_list was not found in %s!\n", filename);
+	} else {
+		access_list_add(setting, "allow_list", &access_allow);
+	}
+
+	if ((setting = libconfig->lookup(config, "socket_configuration/ip_rules/deny_list")) == NULL) {
+		if (!imported)
+			ShowError("socket_config_read: socket_configuration/ip_rules/deny_list was not found in %s!\n", filename);
+	} else {
+		access_list_add(setting, "deny_list", &access_deny);
+	}
+#endif // ! MINICORE
+
+	return true;
+}
+
+/**
+ * Reads 'socket_configuration/ddos' and initializes required variables.
+ *
+ * @param filename Path to configuration file (used in error and warning messages).
+ * @param config   The current config being parsed.
+ * @param imported Whether the current config is imported from another file.
+ *
+ * @retval false in case of error.
+ */
+bool socket_config_read_ddos(const char *filename, struct config_t *config, bool imported)
+{
+#ifndef MINICORE
+	struct config_setting_t *setting = NULL;
+
+	nullpo_retr(false, filename);
+	nullpo_retr(false, config);
+
+	if ((setting = libconfig->lookup(config, "socket_configuration/ddos")) == NULL) {
+		if (imported)
+			return true;
+		ShowError("socket_config_read: socket_configuration/ddos was not found in %s!\n", filename);
+		return false;
+	}
+
+	libconfig->setting_lookup_int(setting, "interval", &ddos_interval);
+	libconfig->setting_lookup_int(setting, "count", &ddos_count);
+	libconfig->setting_lookup_int(setting, "autoreset", &ddos_autoreset);
+
+#endif // ! MINICORE
+	return true;
+}
+
+/**
+ * Reads 'socket_configuration' and initializes required variables.
+ *
+ * @param filename Path to configuration file.
+ * @param imported Whether the current config is imported from another file.
+ *
+ * @retval false in case of error.
+ */
+bool socket_config_read(const char *filename, bool imported)
+{
+	struct config_t config;
+	struct config_setting_t *setting = NULL;
+	const char *import;
+	int i32 = 0;
+	bool retval = true;
+
+	nullpo_retr(false, filename);
+
+	if (!libconfig->load_file(&config, filename))
+		return false;
+
+	if ((setting = libconfig->lookup(&config, "socket_configuration")) == NULL) {
+		libconfig->destroy(&config);
+		if (imported)
+			return true;
+		ShowError("socket_config_read: socket_configuration was not found in %s!\n", filename);
+		return false;
+	}
+
+	if (libconfig->setting_lookup_int(setting, "stall_time", &i32) == CONFIG_TRUE) {
+		if (i32 < 3)
+			i32 = 3; /* a minimum is required in order to refrain from killing itself */
+		sockt->stall_time = i32;
+	}
+
+#ifndef MINICORE
+	{
+		uint32 ui32 = 0;
+		libconfig->setting_lookup_bool(setting, "debug", &access_debug);
+		if (libconfig->setting_lookup_uint32(setting, "socket_max_client_packet", &ui32) == CONFIG_TRUE) {
+			socket_max_client_packet = ui32;
+		}
+	}
+
+	if (!socket_config_read_iprules(filename, &config, imported))
+		retval = false;
+	if (!socket_config_read_ddos(filename, &config, imported))
+		retval = false;
+#endif
+
+	// import should overwrite any previous configuration, so it should be called last
+	if (libconfig->lookup_string(&config, "import", &import) == CONFIG_TRUE) {
+		if (strcmp(import, filename) == 0 || strcmp(import, SOCKET_CONF_FILENAME) == 0) {
+			ShowWarning("socket_config_read: Loop detected! Skipping 'import'...\n");
+		} else {
+			if (!socket_config_read(import, true))
+				retval = false;
+		}
+	}
+
+	libconfig->destroy(&config);
+	return retval;
 }
 
 void socket_final(void)
@@ -1355,7 +1485,6 @@ int socket_getips(uint32* ips, int max)
 
 void socket_init(void)
 {
-	char *SOCKET_CONF_FILENAME = "conf/packet.conf";
 	uint64 rlim_cur = FD_SETSIZE;
 
 #ifdef WIN32
@@ -1418,7 +1547,7 @@ void socket_init(void)
 
 	CREATE(sockt->session, struct socket_data *, FD_SETSIZE);
 
-	socket_config_read(SOCKET_CONF_FILENAME);
+	socket_config_read(SOCKET_CONF_FILENAME, false);
 
 	// initialize last send-receive tick
 	sockt->last_tick = time(NULL);
