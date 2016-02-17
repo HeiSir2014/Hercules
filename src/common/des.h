@@ -22,13 +22,20 @@
 #define COMMON_DES_H
 
 #include "common/cbasetypes.h"
+#include "common/hercules.h"
 
 /// One 64-bit block.
 typedef struct BIT64 { uint8_t b[8]; } BIT64;
 
+struct des_interface {
+	void (*decrypt_block) (BIT64* block);
+	void (*decrypt) (unsigned char* data, size_t size);
+};
+
 #ifdef HERCULES_CORE
-void des_decrypt_block(BIT64* block);
-void des_decrypt(unsigned char* data, size_t size);
+void des_defaults(void);
 #endif // HERCULES_CORE
+
+HPShared struct des_interface *des;
 
 #endif // COMMON_DES_H

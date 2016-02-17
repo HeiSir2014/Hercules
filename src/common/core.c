@@ -43,6 +43,7 @@
 #	include "common/thread.h"
 #	include "common/timer.h"
 #	include "common/utils.h"
+#   include "common/des.h"
 #endif
 
 #ifndef _WIN32
@@ -197,6 +198,7 @@ void core_defaults(void) {
 	timer_defaults();
 	db_defaults();
 	socket_defaults();
+	des_defaults();
 #endif
 }
 /**
