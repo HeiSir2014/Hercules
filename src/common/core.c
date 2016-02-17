@@ -33,6 +33,7 @@
 #include "common/strlib.h"
 #include "common/sysinfo.h"
 #include "common/nullpo.h"
+#include "common/mutex.h"
 
 #ifndef MINICORE
 #	include "common/HPM.h"
@@ -193,6 +194,7 @@ void core_defaults(void) {
 	malloc_defaults();
 	showmsg_defaults();
 	cmdline_defaults();
+	mutex_defaults();
 #ifndef MINICORE
 	libconfig_defaults();
 	sql_defaults();
