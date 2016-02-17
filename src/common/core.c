@@ -44,6 +44,7 @@
 #	include "common/timer.h"
 #	include "common/utils.h"
 #   include "common/des.h"
+#   include "common/md5calc.h"
 #endif
 
 #ifndef _WIN32
@@ -199,6 +200,7 @@ void core_defaults(void) {
 	db_defaults();
 	socket_defaults();
 	des_defaults();
+	md5_defaults();
 #endif
 }
 /**

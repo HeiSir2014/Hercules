@@ -21,10 +21,18 @@
 #ifndef COMMON_MD5CALC_H
 #define COMMON_MD5CALC_H
 
+#include "common/hercules.h"
+
+struct md5_interface {
+	void (*String) (const char * string, char * output);
+	void (*Binary) (const char * string, unsigned char * output);
+	void (*Salt) (unsigned int len, char * output);
+};
+
 #ifdef HERCULES_CORE
-void MD5_String(const char * string, char * output);
-void MD5_Binary(const char * string, unsigned char * output);
-void MD5_Salt(unsigned int len, char * output);
+void md5_defaults(void);
 #endif // HERCULES_CORE
+
+HPShared struct md5_interface *md5;
 
 #endif /* COMMON_MD5CALC_H */

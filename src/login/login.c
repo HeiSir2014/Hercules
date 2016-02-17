@@ -235,7 +235,7 @@ bool login_check_encrypted(const char* str1, const char* str2, const char* passw
 	nullpo_ret(str2);
 	nullpo_ret(passwd);
 	safesnprintf(tmpstr, sizeof(tmpstr), "%s%s", str1, str2);
-	MD5_String(tmpstr, md5str);
+	md5->String(tmpstr, md5str);
 
 	return (0==strcmp(passwd, md5str));
 }
@@ -1471,7 +1471,7 @@ bool login_parse_client_login(int fd, struct login_session_data* sd, const char 
 		ShowStatus("Request for connection of %s (ip: %s).\n", sd->userid, ip);
 		safestrncpy(sd->passwd, password, PASSWD_LEN);
 		if (login->config->use_md5_passwds)
-			MD5_String(sd->passwd, sd->passwd);
+			md5->String(sd->passwd, sd->passwd);
 		sd->passwdenc = PWENC_NONE;
 	}
 	else
@@ -1510,7 +1510,7 @@ void login_parse_request_coding_key(int fd, struct login_session_data* sd)
 {
 	memset(sd->md5key, '\0', sizeof(sd->md5key));
 	sd->md5keylen = (uint16)(12 + rnd() % 4);
-	MD5_Salt(sd->md5keylen, sd->md5key);
+	md5->Salt(sd->md5keylen, sd->md5key);
 
 	login->send_coding_key(fd, sd);
 }
@@ -1538,7 +1538,7 @@ void login_parse_request_connection(int fd, struct login_session_data* sd, const
 	safestrncpy(sd->userid, (char*)RFIFOP(fd,2), NAME_LENGTH);
 	safestrncpy(sd->passwd, (char*)RFIFOP(fd,26), NAME_LENGTH);
 	if (login->config->use_md5_passwds)
-		MD5_String(sd->passwd, sd->passwd);
+		md5->String(sd->passwd, sd->passwd);
 	sd->passwdenc = PWENC_NONE;
 	sd->version = login->config->client_version_to_connect; // hack to skip version check
 	server_ip = ntohl(RFIFOL(fd,54));
