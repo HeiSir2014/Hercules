@@ -195,6 +195,7 @@ void core_defaults(void) {
 	showmsg_defaults();
 	cmdline_defaults();
 	mutex_defaults();
+	rnd_defaults();
 #ifndef MINICORE
 	libconfig_defaults();
 	sql_defaults();
@@ -452,7 +453,7 @@ int main (int argc, char **argv) {
 	timer->init();
 
 	/* timer first */
-	rnd_init();
+	rnd->init();
 	srand((unsigned int)timer->gettick());
 
 	console->init();
