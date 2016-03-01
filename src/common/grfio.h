@@ -21,16 +21,21 @@
 #ifndef COMMON_GRFIO_H
 #define COMMON_GRFIO_H
 
+struct interface_grfio {
+	void (*init) (const char* fname);
+	void (*final) (void);
+	void* (*reads) (const char* fname, int* size);
+	char* (*find_file) (const char* fname);
+
+	unsigned long (*crc32) (const unsigned char *buf, unsigned int len);
+	int (*decode_zip) (void* dest, unsigned long* destLen, const void* source, unsigned long sourceLen);
+	int (*encode_zip) (void* dest, unsigned long* destLen, const void* source, unsigned long sourceLen);
+};
+
+#define grfio_read(fn) grfio->reads((fn), NULL)
+
 #ifdef HERCULES_CORE
-void grfio_init(const char* fname);
-void grfio_final(void);
-void* grfio_reads(const char* fname, int* size);
-char* grfio_find_file(const char* fname);
-#define grfio_read(fn) grfio_reads((fn), NULL)
-
-unsigned long grfio_crc32(const unsigned char *buf, unsigned int len);
-int decode_zip(void* dest, unsigned long* destLen, const void* source, unsigned long sourceLen);
-int encode_zip(void* dest, unsigned long* destLen, const void* source, unsigned long sourceLen);
+void grfio_defaults(void);
 #endif // HERCULES_CORE
-
+struct interface_grfio *grfio;
 #endif /* COMMON_GRFIO_H */

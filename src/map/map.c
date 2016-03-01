@@ -2804,7 +2804,7 @@ void map_cellfromcache(struct map_data *m) {
 		size = (unsigned long)info->xs*(unsigned long)info->ys;
 
 		// TO-DO: Maybe handle the scenario, if the decoded buffer isn't the same size as expected? [Shinryo]
-		decode_zip(decode_buffer, &size, m->cellPos+sizeof(struct map_cache_map_info), info->len);
+		grfio->decode_zip(decode_buffer, &size, m->cellPos+sizeof(struct map_cache_map_info), info->len);
 		CREATE(m->cell, struct mapcell, size);
 
 		// Set cell properties
@@ -3520,7 +3520,7 @@ int map_waterheight(char* mapname)
 	//Look up for the rsw
 	snprintf(fn, sizeof(fn), "data\\%s.rsw", mapname);
 
-	if ( (found = grfio_find_file(fn)) )
+	if ( (found = grfio->find_file(fn)) )
 		safestrncpy(fn, found, sizeof(fn)); // replace with real name
 
 	// read & convert fn
@@ -5586,7 +5586,7 @@ int do_final(void) {
 
 	mapindex->final();
 	if(map->enable_grf)
-		grfio_final();
+		grfio->final();
 
 	db_destroy(map->id_db);
 	db_destroy(map->pc_db);
@@ -5775,6 +5775,7 @@ void map_load_defaults(void) {
 	path_defaults();
 	quest_defaults();
 	npc_chat_defaults();
+	grfio_defaults();
 }
 /**
  * --run-once handler
@@ -6046,7 +6047,7 @@ int do_init(int argc, char *argv[])
 	}
 
 	if(map->enable_grf)
-		grfio_init(map->GRF_PATH_FILENAME);
+		grfio->init(map->GRF_PATH_FILENAME);
 
 	map->readallmaps();
 
