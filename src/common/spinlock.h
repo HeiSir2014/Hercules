@@ -65,11 +65,11 @@ static forceinline void FinalizeSpinLock(SPIN_LOCK *lck){
 }
 
 
-#define getsynclock(l) do { if(InterlockedCompareExchange((l), 1, 0) == 0) break; rathread_yield(); } while(/*always*/1)
+#define getsynclock(l) do { if(InterlockedCompareExchange((l), 1, 0) == 0) break; thread->yield(); } while(/*always*/1)
 #define dropsynclock(l) do { InterlockedExchange((l), 0); } while(0)
 
 static forceinline void EnterSpinLock(SPIN_LOCK *lck){
-		int tid = rathread_get_tid();
+	int tid = thread->get_tid();
 
 		// Get Sync Lock && Check if the requester thread already owns the lock.
 		// if it owns, increase nesting level
@@ -88,14 +88,14 @@ static forceinline void EnterSpinLock(SPIN_LOCK *lck){
 				InterlockedIncrement(&lck->nest);
 				return; // Got Lock
 			}
-			rathread_yield(); // Force ctxswitch to another thread.
+			thread->yield(); // Force ctxswitch to another thread.
 		}
 
 }
 
 
 static forceinline void LeaveSpinLock(SPIN_LOCK *lck){
-		int tid = rathread_get_tid();
+	int tid = thread->get_tid();
 
 		getsynclock(&lck->sync_lock);
 

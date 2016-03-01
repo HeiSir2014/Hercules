@@ -204,6 +204,7 @@ void core_defaults(void) {
 	socket_defaults();
 	des_defaults();
 	md5_defaults();
+	thread_defaults();
 #endif
 }
 /**
@@ -442,7 +443,7 @@ int main (int argc, char **argv) {
 	set_server_type();
 
 	Sql_Init();
-	rathread_init();
+	thread->init();
 	DB->init();
 	signals_init();
 
@@ -479,7 +480,7 @@ int main (int argc, char **argv) {
 	timer->final();
 	sockt->final();
 	DB->final();
-	rathread_final();
+	thread->final();
 	ers_final();
 #endif
 	cmdline->final();
